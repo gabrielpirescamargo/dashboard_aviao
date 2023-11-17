@@ -38,11 +38,11 @@ const Home = () => {
       setUserID(e);
 
       const userResponse = await axios.get(
-        `http://localhost:3000/users?id=${e}`
+        `https://backend-pi-7ri0.onrender.com/users?id=${e}`
       );
       const user = userResponse.data[0];
       const myTasksResponse = await axios.get(
-        `http://localhost:3000/maintenanceList?assignee=${e}`
+        `https://backend-pi-7ri0.onrender.com/maintenanceList?assignee=${e}`
       );
       setUserTasks(myTasksResponse.data);
       const totais = {};
@@ -65,7 +65,7 @@ const Home = () => {
       setUser(user);
 
       const workersResponse = await axios.get(
-        `http://localhost:3000/users?manager=${e}`
+        `https://backend-pi-7ri0.onrender.com/users?manager=${e}`
       );
       setWorkers(workersResponse.data);
       const workersData = workersResponse.data;
@@ -73,7 +73,7 @@ const Home = () => {
       const tasks = [];
       for (const worker of workersData) {
         const taskResponse = await axios.get(
-          `http://localhost:3000/maintenanceList?assignee=${worker.id}`
+          `https://backend-pi-7ri0.onrender.com/maintenanceList?assignee=${worker.id}`
         );
         const taskData = taskResponse.data;
         tasks.push({
@@ -116,7 +116,7 @@ const Home = () => {
   useEffect(() => {
     axios
       .get(
-        `http://localhost:3000/maintenanceList?assignee=${selectedWorker.id}`
+        `https://backend-pi-7ri0.onrender.com/maintenanceList?assignee=${selectedWorker.id}`
       )
       .then((res) => {
         setSelectedWorkerTasks(res.data);

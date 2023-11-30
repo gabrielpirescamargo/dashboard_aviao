@@ -1,9 +1,11 @@
 import axios from 'axios';
 import React, { useEffect, useState } from 'react';
 import { Chart } from 'react-google-charts';
+import { TimelineChart } from './TimelineChart';
+import { TreeChart } from './TreeChart';
+import { WorkersTable } from './WorkersTable';
 
 const Home = () => {
-  const [userID, setUserID] = useState('');
   const [user, setUser] = useState({});
   const [userTasks, setUserTasks] = useState({});
   const [workers, setWorkers] = useState([]);
@@ -12,6 +14,11 @@ const Home = () => {
   const [selectedWorkersTasks, setSelectedWorkersTasks] = useState([]);
   const [workersData, setWorkersData] = useState([]);
   const [userData, setUserData] = useState([]);
+  const [manager, setManager] = useState({});
+  const [changedManager, setChangedManager] = useState('');
+  const [logged, setLogged] = useState(false);
+  const [email, setEmail] = useState('');
+  const [senha, setSenha] = useState('');
 
   const workersOptions = {
     title: 'Progresso',
@@ -29,21 +36,53 @@ const Home = () => {
     is3D: true,
   };
 
+  const handleLogin = async () => {
+    const userResponse = await axios.get(
+      `https://backend-pi-7ri0.onrender.com/users?email=${email}&senha=${senha}`
+    );
+
+    setUser(userResponse.data[0]);
+    handleChange(userResponse.data[0]);
+    setLogged(true);
+  };
+  console.log(user);
+
+  const handleSubmitManager = async () => {
+    const newUser = {
+      ...user,
+      manager: changedManager,
+    };
+    setUser(newUser);
+    await axios({
+      method: 'put',
+      url: `https://backend-pi-7ri0.onrender.com/users/${user.id}`,
+      data: {
+        manager: `${changedManager}`,
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        senha: user.senha,
+      },
+    });
+
+    handleChange(newUser);
+  };
+
   const handleChange = async (e) => {
+    const user = e;
     setWorkersData([]);
     setUserData([]);
-    setUser({});
     setUserTasks([]);
-    if (e) {
-      setUserID(e);
-
-      const userResponse = await axios.get(
-        `https://backend-pi-7ri0.onrender.com/users?id=${e}`
-      );
-      const user = userResponse.data[0];
+    if (user) {
       const myTasksResponse = await axios.get(
-        `https://backend-pi-7ri0.onrender.com/maintenanceList?assignee=${e}`
+        `https://backend-pi-7ri0.onrender.com/maintenanceList?assignee=${user.id}`
       );
+      const myManager = await axios.get(
+        `https://backend-pi-7ri0.onrender.com/users?id=${user.manager}`
+      );
+
+      setManager(myManager.data[0]);
+
       setUserTasks(myTasksResponse.data);
       const totais = {};
       myTasksResponse.data.forEach((task) => {
@@ -62,10 +101,8 @@ const Home = () => {
         ['Concluído', totais?.['Concluído'] || 0],
       ]);
 
-      setUser(user);
-
       const workersResponse = await axios.get(
-        `https://backend-pi-7ri0.onrender.com/users?manager=${e}`
+        `https://backend-pi-7ri0.onrender.com/users?manager=${user.id}`
       );
       setWorkers(workersResponse.data);
       const workersData = workersResponse.data;
@@ -110,9 +147,14 @@ const Home = () => {
       setWorkersData(data);
 
       setSelectedWorkersTasks(tasks);
+      if (user.manager !== changedManager) {
+        setUser({
+          ...user,
+          manager: changedManager,
+        });
+      }
     }
   };
-  console.log(userData);
   useEffect(() => {
     axios
       .get(
@@ -132,76 +174,125 @@ const Home = () => {
           return 'Funcionario';
         }
       } else {
-        return 'ADM';
+        return 'Supervisor';
       }
     }
   };
-
-  return (
-    <>
+  return logged ? (
+    <div style={{ padding: 50 }}>
       <div>
-        <input type='text' onChange={(e) => handleChange(e.target.value)} />
         <h1 style={{ textAlign: 'left', lineHeight: 0 }}>{user?.name}</h1>
-        <h3 style={{ textAlign: 'left' }}>{role()}</h3>
+        {/* <h3 style={{ textAlign: 'left' }}>{role()}</h3> */}
       </div>
-      {userData && role() !== 'ADM' && role() && (
-        <div>
-          <h2>Meus dados</h2>
-
-          <Chart
-            chartType='PieChart'
-            data={userData}
-            options={myOptions}
-            height='400px'
-            width='800px'
-          />
+      <div
+        style={{
+          background: '#2f2f2f',
+          display: 'flex',
+          padding: 32,
+          paddingTop: 16,
+          marginTop: 32,
+          flexDirection: 'row',
+          alignItems: 'flex-start',
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'flex-start',
+            paddingBottom: 30,
+          }}
+        >
+          {role() !== 'Funcionario' && role() && workers.length > 0 && (
+            <WorkersTable workers={workers} />
+          )}
+          <div>
+            <h2>Meu gerente</h2>
+            <div>
+              <input
+                type='text'
+                defaultValue={user?.manager || ''}
+                onChange={(e) => setChangedManager(e.target.value)}
+              />
+              <button type='submit' onClick={() => handleSubmitManager()}>
+                Trocar
+              </button>
+            </div>
+          </div>
         </div>
-      )}
-      {role() !== 'Funcionario' && role() && (
-        <div>
-          <table style={{ borderSpacing: '32px 0px' }}>
-            <h2>Dados dos funcionarios</h2>
-            <h3>Funcionarios</h3>
-            <tr style={{ textAlign: 'left' }}>
-              <th>Nome</th>
-              <th>ID</th>
-              <th>E-mail</th>
-            </tr>
-            {workers?.map((worker) => {
-              return (
-                <tr
-                  style={{ textAlign: 'left', cursor: 'pointer' }}
-                  onClick={() => setSelectedWorker(worker)}
-                >
-                  <td>{worker.name}</td>
-                  <td>{worker.id}</td>
-                  <td>{worker.email}</td>
-                </tr>
-              );
-            })}
-          </table>
-        </div>
-      )}
+        {user?.name && (workers || user?.manager) && (
+          <div style={{ marginLeft: 100, marginTop: 100 }}>
+            <TreeChart user={user} workers={workers} manager={manager} />
+          </div>
+        )}
+      </div>
 
-      <div>
+      <div
+        style={{
+          padding: 32,
+          paddingTop: 16,
+          marginTop: 32,
+          background: '#2f2f2f',
+        }}
+      >
+        {userData && role() !== 'ADM' && role() && (
+          <div>
+            <h2>Meus dados</h2>
+
+            <Chart
+              chartType='PieChart'
+              data={userData}
+              options={myOptions}
+              height='400px'
+              width='800px'
+            />
+          </div>
+        )}
+
+        {/* <div>
         {selectedWorker && (
           <div>
             <h3>{selectedWorker.name}</h3>
           </div>
         )}
-      </div>
+      </div> */}
 
-      <div>
-        {workersData.length > 1 && (
-          <Chart
-            chartType='BarChart'
-            height='400px'
-            width='800px'
-            data={workersData}
-            options={workersOptions}
-          />
-        )}
+        <div style={{ marginTop: 32 }}>
+          {workersData.length > 1 && (
+            <div>
+              {' '}
+              <h2>Dados dos colaboradores</h2>
+              <Chart
+                chartType='BarChart'
+                height='400px'
+                width='800px'
+                data={workersData}
+                options={workersOptions}
+              />
+            </div>
+          )}
+        </div>
+
+        <div style={{ marginTop: 32 }}>
+          {selectedWorkersTasks.length > 4 && (
+            <TimelineChart selectedWorkersTasks={selectedWorkersTasks} />
+          )}
+        </div>
       </div>
+    </div>
+  ) : (
+    <>
+      <input
+        type='text'
+        onChange={(e) => setEmail(e.target.value)}
+        placeholder='email'
+      />
+      <input
+        type='text'
+        onChange={(e) => setSenha(e.target.value)}
+        placeholder='senha'
+      />
+      <button onClick={() => handleLogin()}>Login</button>
     </>
   );
 };
